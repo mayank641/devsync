@@ -8,8 +8,10 @@ import mongoose from 'mongoose';
 import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import User from './models/User.js';
+import Project from './models/Project.js';
 import authRoutes from './routes/auth.js';
 import projectRoutes from './routes/projects.js';
+import collaborationRoutes from './routes/collaboration.js';
 
 const required = ['MONGODB_URI', 'JWT_SECRET', 'CLIENT_URL'];
 for (const key of required) if (!process.env[key]) throw new Error(`Missing required environment variable: ${key}`);
@@ -24,6 +26,7 @@ app.use('/api', rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeader
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', service: 'devsync-api', timestamp: new Date().toISOString() }));
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/projects', collaborationRoutes);
 app.use((req, res) => res.status(404).json({ message: `Route not found: ${req.method} ${req.path}` }));
 app.use((error, _req, res, _next) => {
   if (error?.name === 'CastError') return res.status(400).json({ message: 'Invalid identifier.' });
@@ -46,7 +49,6 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   socket.on('project:join', async (projectId) => {
     if (typeof projectId !== 'string' || !/^[a-f\d]{24}$/i.test(projectId)) return;
-    const { default: Project } = await import('./models/Project.js');
     const project = await Project.findById(projectId).select('owner members');
     if (!project) return;
     const allowed = project.owner.toString() === socket.user._id.toString() || project.members.some((id) => id.toString() === socket.user._id.toString());

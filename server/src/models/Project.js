@@ -9,11 +9,17 @@ const taskSchema = new mongoose.Schema({
   dueDate: { type: Date, default: null }
 }, { timestamps: true });
 
+const memberRoleSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  role: { type: String, enum: ['admin', 'member'], default: 'member' }
+}, { _id: false });
+
 const projectSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true, maxlength: 100 },
   description: { type: String, default: '', maxlength: 1000 },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  memberRoles: { type: [memberRoleSchema], default: [] },
   tasks: [taskSchema]
 }, { timestamps: true });
 
