@@ -94,7 +94,11 @@ router.delete('/:projectId/members/:userId', async (req, res, next) => {
     p.members = p.members.filter((m) => idOf(m) !== req.params.userId);
     p.memberRoles = (p.memberRoles || []).filter((m) => idOf(m.user) !== req.params.userId);
     await p.save();
-    req.app.get('io').to(`project:${p._id}`).emit('project:members-updated', { projectId: p._id.toString() });
+    const io = req.app.get('io');
+    const room = `project:${p._id}`;
+    const sockets = await io.in(room).fetchSockets();
+    await Promise.all(sockets.filter((socket) => socket.user?._id?.toString() === req.params.userId).map((socket) => socket.leave(room)));
+    io.to(room).emit('project:members-updated', { projectId: p._id.toString() });
     res.json({ message: selfLeave ? 'You left the project.' : 'Member removed.' });
   } catch (e) { next(e); }
 });
