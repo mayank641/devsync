@@ -48,7 +48,7 @@ io.use(async (socket, next) => {
 });
 io.on('connection', (socket) => {
   socket.on('project:join', async (projectId) => {
-    if (typeof projectId !== 'string' || !/^[a-f\\d]{24}$/i.test(projectId)) return;
+    if (typeof projectId !== 'string' || !/^[a-f\d]{24}$/i.test(projectId)) return;
     const project = await Project.findById(projectId).select('owner members');
     if (!project) return;
     const allowed = project.owner.toString() === socket.user._id.toString() || project.members.some((id) => id.toString() === socket.user._id.toString());
