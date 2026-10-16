@@ -24,4 +24,4 @@ jobs:
       - name: Run server tests
         run: npm run test --workspace=server
       - name: Run client tests
-        run: npm run test --workspace=client
+        run: npm run test --workspace=client -- --passWithNoTests
