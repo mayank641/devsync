@@ -6,7 +6,7 @@ import { requireAuth } from '../middleware/auth.js';
 const router = Router();
 router.use(requireAuth);
 const projectInput = z.object({ name: z.string().trim().min(2).max(100), description: z.string().max(1000).optional().default('') });
-const taskInput = z.object({ title: z.string().trim().min(2).max(160), description: z.string().max(2000).optional().default(''), priority: z.enum(['low', 'medium', 'high']).optional().default('medium'), dueDate: z.string().datetime().optional().nullable(), assignee: z.string().regex(/^[a-f\\d]{24}$/i).nullable().optional() });
+const taskInput = z.object({ title: z.string().trim().min(2).max(160), description: z.string().max(2000).optional().default(''), priority: z.enum(['low', 'medium', 'high']).optional().default('medium'), dueDate: z.string().datetime().optional().nullable(), assignee: z.string().regex(/^[a-f\d]{24}$/i).nullable().optional() });
 const idOf = (value) => (value?._id ?? value)?.toString();
 const canAccess = (project, userId) => project && (idOf(project.owner) === userId.toString() || project.members.some((m) => idOf(m) === userId.toString()));
 
@@ -47,7 +47,7 @@ router.post('/:projectId/tasks', async (req, res, next) => {
 });
 router.patch('/:projectId/tasks/:taskId', async (req, res, next) => {
   try {
-    const patchSchema = z.object({ title: z.string().trim().min(2).max(160).optional(), description: z.string().max(2000).optional(), status: z.enum(['todo', 'in-progress', 'done']).optional(), priority: z.enum(['low', 'medium', 'high']).optional(), assignee: z.string().regex(/^[a-f\\d]{24}$/i).nullable().optional(), dueDate: z.string().datetime().nullable().optional() }).refine((data) => Object.keys(data).length > 0);
+    const patchSchema = z.object({ title: z.string().trim().min(2).max(160).optional(), description: z.string().max(2000).optional(), status: z.enum(['todo', 'in-progress', 'done']).optional(), priority: z.enum(['low', 'medium', 'high']).optional(), assignee: z.string().regex(/^[a-f\d]{24}$/i).nullable().optional(), dueDate: z.string().datetime().nullable().optional() }).refine((data) => Object.keys(data).length > 0);
     const parsed = patchSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: 'Provide valid task fields to update.' });
     const project = await Project.findById(req.params.projectId);
