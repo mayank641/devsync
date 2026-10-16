@@ -9,7 +9,7 @@ DevSync is a portfolio-ready learning project built around the React and Node.js
 - Create projects and create, update, and delete tasks.
 - Task workflow: To do → In progress → Completed, with priorities and descriptions.
 - Real-time task events with Socket.IO. Connected project members see updates without refreshing.
-- Project team panel with member listing, owner-managed member roles, member removal, and email-address invitations using expiring, hashed invitation tokens.
+- Project team panel with member listing, owner-managed member roles, member removal, and email invitations using expiring, hashed invitation tokens. Email delivery uses the Resend API.
 - Persistent project chat stored in MongoDB and broadcast to authorized connected project members.
 - Task assignment to a project member, validated by the backend.
 - MongoDB persistence with Mongoose schemas and indexes.
@@ -36,7 +36,7 @@ DevSync is a portfolio-ready learning project built around the React and Node.js
    npm install
    ```
 
-2. Create `server/.env` from `server/.env.example` and set `MONGODB_URI`, a long random `JWT_SECRET`, and `CLIENT_URL=http://localhost:5173`.
+2. Create `server/.env` from `server/.env.example` and set `MONGODB_URI`, a long random `JWT_SECRET`, `CLIENT_URL=http://localhost:5173`, `RESEND_API_KEY`, and `EMAIL_FROM` (a sender address verified in Resend).
 
 3. Create `client/.env` from `client/.env.example`. Defaults work for local development.
 
@@ -86,7 +86,7 @@ Create a cluster, create a database user, configure network access appropriately
 - Root directory: `server` (or configure the service for the monorepo workspace).
 - Build command: `npm install` from repository root if using npm workspaces; otherwise install from `server`.
 - Start command: `npm start`.
-- Set `MONGODB_URI`, `JWT_SECRET`, `CLIENT_URL` (the deployed frontend origin), and `NODE_ENV=production`.
+- Set `MONGODB_URI`, `JWT_SECRET`, `CLIENT_URL` (the deployed frontend origin), `NODE_ENV=production`, `RESEND_API_KEY`, and `EMAIL_FROM` (a sender/domain verified in Resend).
 - Use a Render plan that supports persistent WebSocket connections for Socket.IO.
 
 ### 3. Frontend — Vercel
