@@ -46,7 +46,7 @@ export default function CollaborationPanel({ projectId, project }) {
     e.preventDefault(); setBusy(true); setNotice(''); setInviteLink('');
     try {
       const { data } = await api.post(`/projects/${projectId}/invitations`, { email, role: inviteRole });
-      setInviteLink(data.inviteLink); setNotice(data.note); setEmail('');
+      setInviteLink(data.inviteLink); setNotice(data.note || 'Invitation email sent.'); setEmail('');
     } catch (e) { setNotice(errorMessage(e)); } finally { setBusy(false); }
   };
   const changeRole = async (userId, nextRole) => {
@@ -67,8 +67,8 @@ export default function CollaborationPanel({ projectId, project }) {
     <Tabs><button aria-selected={tab === 'members'} onClick={() => setTab('members')}>Team members ({members.length})</button><button aria-selected={tab === 'chat'} onClick={() => setTab('chat')}>Team chat</button></Tabs>
     {notice && <Notice role="status">{notice}</Notice>}
     {tab === 'members' ? <>
-      {(isOwner || role === 'admin') && <Form onSubmit={invite}><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Invite by email address" aria-label="Invite email"/><select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} aria-label="Invitation role"><option value="member">Member</option><option value="admin">Admin</option></select><button disabled={busy}>{busy ? 'Creating…' : 'Create invite link'}</button></Form>}
-      {inviteLink && <><Notice>Share this one-time invitation link with the recipient. It expires in 7 days.</Notice><Row><input aria-label="Invitation link" readOnly value={inviteLink} style={{flex:1}}/><button className="btn secondary" onClick={() => { navigator.clipboard?.writeText(inviteLink); setNotice('Invitation link copied if clipboard permission was granted.'); }}>Copy link</button></Row></>}
+      {(isOwner || role === 'admin') && <Form onSubmit={invite}><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Invite by email address" aria-label="Invite email"/><select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} aria-label="Invitation role"><option value="member">Member</option><option value="admin">Admin</option></select><button disabled={busy}>{busy ? 'Creating…' : 'Send invitation email'}</button></Form>}
+      {inviteLink && <><Notice>Email sent successfully. You can copy the invitation link as a backup; it expires in 7 days.</Notice><Row><input aria-label="Invitation link" readOnly value={inviteLink} style={{flex:1}}/><button className="btn secondary" onClick={() => { navigator.clipboard?.writeText(inviteLink); setNotice('Invitation link copied if clipboard permission was granted.'); }}>Copy link</button></Row></>}
       {members.map(({ user: member, role: memberRole }) => <Row key={member._id}><div className="identity"><strong>{member.name}{String(member._id) === String(user?._id || user?.id) ? ' (you)' : ''}</strong><small>{member.email}</small></div><small>{memberRole}</small>{isOwner && memberRole !== 'owner' && <><select aria-label={`Role for ${member.name}`} value={memberRole} onChange={(e) => changeRole(member._id, e.target.value)}><option value="member">Member</option><option value="admin">Admin</option></select><button className="btn secondary" onClick={() => removeMember(member._id)}>Remove</button></>}</Row>)}
       {!isOwner && <Row><small>Your role: {role}. Only owners can change roles or remove other members.</small></Row>}
     </> : <>

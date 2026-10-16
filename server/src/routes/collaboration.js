@@ -26,16 +26,76 @@ router.get('/:projectId/members', async (req, res, next) => {
 
 router.post('/:projectId/invitations', async (req, res, next) => {
   try {
-    const parsed = z.object({ email: z.string().email().max(254).transform((v) => v.toLowerCase()), role: z.enum(['admin', 'member']).default('member') }).safeParse(req.body);
+    const parsed = z.object({
+      email: z.string().trim().email().max(254).transform((v) => v.toLowerCase()),
+      role: z.enum(['admin', 'member']).default('member')
+    }).safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ message: 'Enter a valid email address and role.' });
+
+    // Fail before creating a token if email delivery is not configured.
+    if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+      return res.status(503).json({ message: 'Invitation email is not configured yet. Add RESEND_API_KEY and EMAIL_FROM to the Render API environment.' });
+    }
+
     const p = await Project.findById(req.params.projectId);
-    if (!isOwner(p, req.user._id) && roleOf(p, req.user._id) !== 'admin') return res.status(p ? 403 : 404).json({ message: p ? 'Only project owners and admins can invite members.' : 'Project not found.' });
+    if (!p) return res.status(404).json({ message: 'Project not found.' });
+    if (!isOwner(p, req.user._id) && roleOf(p, req.user._id) !== 'admin') {
+      return res.status(403).json({ message: 'Only project owners and admins can invite members.' });
+    }
     const target = await User.findOne({ email: parsed.data.email }).select('_id email');
     if (target && isMember(p, target._id)) return res.status(409).json({ message: 'That user is already a project member.' });
+
     const rawToken = randomBytes(32).toString('hex');
-    const invitation = await Invitation.create({ project: p._id, email: parsed.data.email, role: parsed.data.role, tokenHash: hash(rawToken), invitedBy: req.user._id, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) });
+    const invitation = await Invitation.create({
+      project: p._id,
+      email: parsed.data.email,
+      role: parsed.data.role,
+      tokenHash: hash(rawToken),
+      invitedBy: req.user._id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    });
     const base = (process.env.CLIENT_URL || '').split(',')[0].trim().replace(/\/$/, '');
-    res.status(201).json({ invitation: { id: invitation._id, email: invitation.email, role: invitation.role, expiresAt: invitation.expiresAt }, inviteLink: `${base}/invitations/accept?token=${rawToken}`, note: target ? 'Share this invitation link with the invited user. Email delivery is not configured.' : 'The recipient must register with this email address, then open the invitation link. Email delivery is not configured.' });
+    const inviteLink = `${base}/invitations/accept?token=${rawToken}`;
+    const safeProjectName = p.name.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+    const safeInviterName = (req.user.name || 'A teammate').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
+    const emailText = `${safeInviterName} invited you to join "${p.name}" on DevSync as a ${parsed.data.role}. Accept the invitation within 7 days: ${inviteLink}\n\nIf you do not expect this invitation, you can ignore this email.`;
+    const emailHtml = `<!doctype html><html><body style="margin:0;background:#f4f5fb;font-family:Arial,sans-serif;color:#1c2340;padding:32px 12px"><div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e3e6f0;border-radius:16px;padding:32px"><div style="font-size:22px;font-weight:700;margin-bottom:24px">devsync</div><h1 style="font-size:24px;margin:0 0 16px">You're invited to collaborate</h1><p style="font-size:15px;line-height:1.7">${safeInviterName} invited you to join <strong>${safeProjectName}</strong> as a <strong>${parsed.data.role}</strong>.</p><p style="font-size:14px;line-height:1.7;color:#5c647a">Accept within 7 days. You'll need to sign in or create a DevSync account using this invited email address.</p><p style="margin:28px 0"><a href="${inviteLink}" style="display:inline-block;background:#7063e8;color:#fff;text-decoration:none;padding:13px 20px;border-radius:9px;font-weight:700">Accept invitation</a></p><p style="font-size:12px;line-height:1.6;color:#6d7488">If the button doesn't work, copy this link into your browser:<br><a href="${inviteLink}" style="color:#5144bf;overflow-wrap:anywhere">${inviteLink}</a></p><hr style="border:0;border-top:1px solid #eceef5;margin:24px 0"><p style="font-size:11px;color:#8b91a2">If you weren't expecting this invitation, you can ignore this email.</p></div></body></html>`;
+
+    let emailResponse;
+    try {
+      emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: process.env.EMAIL_FROM,
+          to: [parsed.data.email],
+          subject: `You're invited to ${p.name} on DevSync`,
+          html: emailHtml,
+          text: emailText
+        }),
+        signal: AbortSignal.timeout(10000)
+      });
+    } catch (error) {
+      await Invitation.deleteOne({ _id: invitation._id });
+      console.error('Invitation email provider request failed:', error?.name || 'NetworkError');
+      return res.status(502).json({ message: 'Could not reach the email provider. No invitation was created; please try again.' });
+    }
+
+    if (!emailResponse.ok) {
+      const providerError = await emailResponse.json().catch(() => ({}));
+      await Invitation.deleteOne({ _id: invitation._id });
+      console.error('Invitation email provider rejected request:', emailResponse.status, providerError?.name || providerError?.message || 'Unknown error');
+      return res.status(502).json({ message: 'The email provider rejected this invitation. Check your Resend API key, verified sender address, and recipient restrictions.' });
+    }
+
+    const providerResult = await emailResponse.json().catch(() => ({}));
+    res.status(201).json({
+      invitation: { id: invitation._id, email: invitation.email, role: invitation.role, expiresAt: invitation.expiresAt },
+      inviteLink,
+      emailSent: true,
+      emailId: providerResult.id,
+      note: `Invitation email sent to ${parsed.data.email}. The link expires in 7 days.`
+    });
   } catch (e) { next(e); }
 });
 
