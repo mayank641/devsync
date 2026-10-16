@@ -9,6 +9,9 @@ DevSync is a portfolio-ready learning project built around the React and Node.js
 - Create projects and create, update, and delete tasks.
 - Task workflow: To do → In progress → Completed, with priorities and descriptions.
 - Real-time task events with Socket.IO. Connected project members see updates without refreshing.
+- Project team panel with member listing, owner-managed member roles, member removal, and email-address invitations using expiring, hashed invitation tokens.
+- Persistent project chat stored in MongoDB and broadcast to authorized connected project members.
+- Task assignment to a project member, validated by the backend.
 - MongoDB persistence with Mongoose schemas and indexes.
 - Request validation with Zod, centralized errors, Helmet, CORS allow-list, and API rate limiting.
 - Responsive dashboard, project board, settings, and React/Node learning roadmap.
@@ -61,6 +64,13 @@ API health check: `http://localhost:5000/api/health`
 | POST | `/api/projects/:projectId/tasks` | Create task | Yes |
 | PATCH | `/api/projects/:projectId/tasks/:taskId` | Update task | Yes |
 | DELETE | `/api/projects/:projectId/tasks/:taskId` | Delete task | Yes |
+| GET | `/api/projects/:projectId/members` | List members and roles | Yes |
+| POST | `/api/projects/:projectId/invitations` | Create a 7-day invitation link | Owner/admin |
+| POST | `/api/projects/invitations/accept` | Accept invitation (signed-in email must match) | Yes |
+| PATCH | `/api/projects/:projectId/members/:userId/role` | Change a member role | Owner |
+| DELETE | `/api/projects/:projectId/members/:userId` | Remove a member / leave project | Yes |
+| GET | `/api/projects/:projectId/messages` | Load recent chat messages | Member |
+| POST | `/api/projects/:projectId/messages` | Send a persistent chat message | Member |
 
 Send authenticated requests with `Authorization: Bearer <token>`.
 
@@ -97,8 +107,8 @@ This is a working portfolio starter, not a security-audited commercial product. 
 
 - Move JWTs from localStorage to secure, HttpOnly, SameSite cookies and add CSRF protection where applicable.
 - Add refresh-token rotation, email verification, password reset, account deletion, and session revocation.
-- Add project invitations/member management UI and role-based permissions.
-- Add persistent chat/messages, notifications, file uploads, and activity history.
+- Email delivery for invitations is not configured: the owner copies and shares the generated invitation link manually. The recipient must sign in using the invited email address.
+- Add a dedicated notification inbox, file uploads, and activity history.
 - Add automated integration tests and CI checks; validate all error paths and access-control cases.
 - Add pagination for large collections, structured logging, monitoring, backups, and deployment health checks.
 - Configure a shared Socket.IO adapter if deploying multiple API instances.
