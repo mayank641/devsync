@@ -12,7 +12,7 @@ router.use(requireAuth);
 const idOf = (v) => (v?._id ?? v)?.toString();
 const isMember = (p, uid) => p && (idOf(p.owner) === uid.toString() || (p.members || []).some((m) => idOf(m) === uid.toString()));
 const isOwner = (p, uid) => p && idOf(p.owner) === uid.toString();
-const roleOf = (p, uid) => isOwner(p, uid) ? 'owner' : (p.memberRoles || []).find((m) => idOf(m.user) === uid.toString())?.role || 'member';
+const roleOf = (p, uid) => !p ? null : isOwner(p, uid) ? 'owner' : (p.memberRoles || []).find((m) => idOf(m.user) === uid.toString())?.role || 'member';
 const hash = (v) => createHash('sha256').update(v).digest('hex');
 
 router.get('/:projectId/members', async (req, res, next) => {
