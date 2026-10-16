@@ -36,7 +36,7 @@ describe('CollaborationPanel', () => {
     render(<CollaborationPanel projectId="project-1" project={{ owner: { _id: 'owner-1' } }} />);
 
     expect(await screen.findByText('asha@example.com')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Create invite link' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send invitation email' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Invite email' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Team chat' }));
@@ -44,15 +44,15 @@ describe('CollaborationPanel', () => {
     expect(screen.getByRole('textbox', { name: 'Team message' })).toBeInTheDocument();
   });
 
-  it('creates and displays a shareable invitation link', async () => {
+  it('sends an invitation email and displays a backup link', async () => {
     mocks.get.mockImplementation((url) => url.endsWith('/members')
       ? Promise.resolve({ data: { currentRole: 'owner', members: [{ role: 'owner', user: { _id: 'owner-1', name: 'Asha', email: 'asha@example.com' } }] } })
       : Promise.resolve({ data: { messages: [] } }));
-    mocks.post.mockResolvedValue({ data: { inviteLink: 'https://devsync.example/invitations/accept?token=abc123', note: 'Share this link.' } });
+    mocks.post.mockResolvedValue({ data: { inviteLink: 'https://devsync.example/invitations/accept?token=abc123', note: 'Invitation email sent.' } });
 
     render(<CollaborationPanel projectId="project-1" project={{ owner: { _id: 'owner-1' } }} />);
     fireEvent.change(await screen.findByRole('textbox', { name: 'Invite email' }), { target: { value: 'member@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create invite link' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send invitation email' }));
 
     expect(await screen.findByDisplayValue('https://devsync.example/invitations/accept?token=abc123')).toBeInTheDocument();
     expect(mocks.post).toHaveBeenCalledWith('/projects/project-1/invitations', { email: 'member@example.com', role: 'member' });
